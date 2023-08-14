@@ -476,7 +476,7 @@ class DeleteAccountMixin(ArchiveOrDeleteMixin):
             user.save(update_fields=["is_active"])
             revoke_user_refresh_token(user=user)
 
-
+@add_dynamic_fields
 class PasswordChangeMixin(Output):
     """
     Change account password when user knows the old password.
@@ -485,13 +485,6 @@ class PasswordChangeMixin(Output):
     """
 
     form = PasswordChangeForm
-
-    @classmethod
-    def Field(cls, *args, **kwargs):
-        if using_refresh_tokens():
-            cls._meta.fields["refresh_token"] = graphene.Field(graphene.String)
-        cls._meta.fields["token"] = graphene.Field(graphene.String)
-        return super().Field(*args, **kwargs)
 
     @classmethod
     @token_auth
