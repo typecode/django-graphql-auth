@@ -43,6 +43,7 @@ setup(
     packages=find_packages(exclude=["tests*"]),
     install_requires=[
         "django-graphql-jwt==0.4.0",
+        "PyJWT==2.8.0",
     ],
     tests_require=tests_require,
     classifiers=[

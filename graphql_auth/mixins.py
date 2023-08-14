@@ -41,7 +41,14 @@ if app_settings.EMAIL_ASYNC_TASK and isinstance(app_settings.EMAIL_ASYNC_TASK, s
 else:
     async_email_func = None
 
+def add_dynamic_fields(cls):
+    if app_settings.ALLOW_LOGIN_NOT_VERIFIED:
+        setattr(cls, "token", graphene.Field(graphene.String))
+        if using_refresh_tokens():
+            setattr(cls, "refresh_token", graphene.Field(graphene.String))
+    return cls
 
+@add_dynamic_fields
 class RegisterMixin(Output):
     """
     Register user with fields defined in the settings.
@@ -69,14 +76,6 @@ class RegisterMixin(Output):
         if app_settings.ALLOW_PASSWORDLESS_REGISTRATION
         else RegisterForm
     )
-
-    @classmethod
-    def Field(cls, *args, **kwargs):
-        if app_settings.ALLOW_LOGIN_NOT_VERIFIED:
-            if using_refresh_tokens():
-                setattr(cls, "refresh_token", graphene.Field(graphene.String))
-            setattr(cls, "token", graphene.Field(graphene.String))
-        return super().Field(*args, **kwargs)
 
     @classmethod
     @token_auth
