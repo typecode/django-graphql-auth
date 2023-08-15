@@ -42,10 +42,9 @@ else:
     async_email_func = None
 
 def add_dynamic_fields(cls):
-    if app_settings.ALLOW_LOGIN_NOT_VERIFIED:
-        setattr(cls, "token", graphene.Field(graphene.String))
-        if using_refresh_tokens():
-            setattr(cls, "refresh_token", graphene.Field(graphene.String))
+    setattr(cls, "token", graphene.Field(graphene.String))
+    if using_refresh_tokens():
+        setattr(cls, "refresh_token", graphene.Field(graphene.String))
     return cls
 
 @add_dynamic_fields
