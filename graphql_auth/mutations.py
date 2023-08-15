@@ -29,7 +29,7 @@ from .utils import normalize_fields
 from .settings import graphql_auth_settings as app_settings
 from .schema import UserNode
 
-class CustomObtainJSONWebTokenMixin:
+class JSONWebTokenMixin:
     payload = GenericScalar()
     refresh_expires_in = graphene.Int()
 
@@ -44,7 +44,8 @@ class CustomObtainJSONWebTokenMixin:
                 )
 
         return super().Field(*args, **kwargs)
-
+    
+class CustomObtainJSONWebTokenMixin(JSONWebTokenMixin):
     @classmethod
     def __init_subclass_with_meta__(cls, name=None, **options):
         assert getattr(cls, "resolve", None), (
@@ -79,7 +80,7 @@ class RefreshMixin(
         if jwt_settings.JWT_LONG_RUNNING_REFRESH_TOKEN
         else KeepAliveRefreshMixin
     ),
-    CustomObtainJSONWebTokenMixin,
+    JSONWebTokenMixin,
 ):
     """RefreshMixin"""
 
