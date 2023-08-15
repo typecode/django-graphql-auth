@@ -156,13 +156,6 @@ class ObtainJSONWebToken(
     user = graphene.Field(UserNode)
     unarchiving = graphene.Boolean(default_value=False)
 
-    @classmethod
-    def Field(cls, *args, **kwargs):
-        cls._meta.arguments.update({"password": graphene.String(required=True)})
-        for field in app_settings.LOGIN_ALLOWED_FIELDS:
-            cls._meta.arguments.update({field: graphene.String()})
-        return super(graphql_jwt.JSONWebTokenMutation, cls).Field(*args, **kwargs)
-
 
 class ArchiveAccount(
     MutationMixin, ArchiveAccountMixin, DynamicArgsMixin, graphene.Mutation
