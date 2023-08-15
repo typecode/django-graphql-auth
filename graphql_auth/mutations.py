@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from graphql_jwt.decorators import token_auth
 from graphene.types.generic import GenericScalar
 from graphql_jwt.settings import jwt_settings
+from graphql_jwt.mixins import RefreshTokenMixin, KeepAliveRefreshMixin
 
 from .bases import MutationMixin, DynamicArgsMixin
 from .mixins import (
@@ -71,6 +72,26 @@ class JSONWebTokenMutation(CustomObtainJSONWebTokenMixin, graphene.Mutation):
     @token_auth
     def mutate(cls, root, info, **kwargs):
         return cls.resolve(root, info, **kwargs)
+
+class RefreshMixin(
+    (
+        RefreshTokenMixin
+        if jwt_settings.JWT_LONG_RUNNING_REFRESH_TOKEN
+        else KeepAliveRefreshMixin
+    ),
+    CustomObtainJSONWebTokenMixin,
+):
+    """RefreshMixin"""
+
+
+class CustomRefresh(RefreshMixin, graphene.Mutation):
+    class Arguments(RefreshMixin.Fields):
+        """Refresh Arguments"""
+
+    @classmethod
+    def mutate(cls, *arg, **kwargs):
+        return cls.refresh(*arg, **kwargs)
+
 
 class Register(MutationMixin, DynamicArgsMixin, RegisterMixin, graphene.Mutation):
 
@@ -190,7 +211,7 @@ class VerifyToken(MutationMixin, VerifyOrRefreshOrRevokeTokenMixin, graphql_jwt.
 
 
 class RefreshToken(
-    MutationMixin, VerifyOrRefreshOrRevokeTokenMixin, graphql_jwt.Refresh
+    MutationMixin, VerifyOrRefreshOrRevokeTokenMixin, CustomRefresh
 ):
     __doc__ = VerifyOrRefreshOrRevokeTokenMixin.__doc__
 
