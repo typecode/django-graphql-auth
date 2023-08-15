@@ -30,7 +30,7 @@ from .schema import UserNode
 
 class CustomObtainJSONWebTokenMixin:
     payload = GenericScalar()
-    refresh_expires_in = graphene.Int(required=True)
+    refresh_expires_in = graphene.Int()
 
     @classmethod
     def Field(cls, *args, **kwargs):
