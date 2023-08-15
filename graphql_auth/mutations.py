@@ -1,5 +1,10 @@
 import graphene
 import graphql_jwt
+from django.contrib.auth import get_user_model
+from graphql_jwt.decorators import token_auth
+from graphene.types.generic import GenericScalar
+from graphql_jwt.settings import jwt_settings
+from graphql_jwt.mixins import RefreshTokenMixin, KeepAliveRefreshMixin
 
 from .bases import MutationMixin, DynamicArgsMixin
 from .mixins import (
@@ -23,6 +28,70 @@ from .mixins import (
 from .utils import normalize_fields
 from .settings import graphql_auth_settings as app_settings
 from .schema import UserNode
+
+class JSONWebTokenMixin:
+    payload = GenericScalar()
+    refresh_expires_in = graphene.Int()
+
+    @classmethod
+    def Field(cls, *args, **kwargs):
+        if not jwt_settings.JWT_HIDE_TOKEN_FIELDS:
+            cls._meta.fields["token"] = graphene.Field(graphene.String)
+
+            if jwt_settings.JWT_LONG_RUNNING_REFRESH_TOKEN:
+                cls._meta.fields["refresh_token"] = graphene.Field(
+                    graphene.String,
+                )
+
+        return super().Field(*args, **kwargs)
+    
+class CustomObtainJSONWebTokenMixin(JSONWebTokenMixin):
+    @classmethod
+    def __init_subclass_with_meta__(cls, name=None, **options):
+        assert getattr(cls, "resolve", None), (
+            f"{name or cls.__name__}.resolve "
+            "method is required in a JSONWebTokenMutation."
+        )
+
+        super().__init_subclass_with_meta__(name=name, **options)
+
+class JSONWebTokenMutation(CustomObtainJSONWebTokenMixin, graphene.Mutation):
+    class Meta:
+        abstract = True
+
+    @classmethod
+    def Field(cls, *args, **kwargs):
+        cls._meta.arguments.update(
+            {
+                get_user_model().USERNAME_FIELD: graphene.String(required=True),
+                "password": graphene.String(required=True),
+            },
+        )
+        return super().Field(*args, **kwargs)
+
+    @classmethod
+    @token_auth
+    def mutate(cls, root, info, **kwargs):
+        return cls.resolve(root, info, **kwargs)
+
+class RefreshMixin(
+    (
+        RefreshTokenMixin
+        if jwt_settings.JWT_LONG_RUNNING_REFRESH_TOKEN
+        else KeepAliveRefreshMixin
+    ),
+    JSONWebTokenMixin,
+):
+    """RefreshMixin"""
+
+
+class CustomRefresh(RefreshMixin, graphene.Mutation):
+    class Arguments(RefreshMixin.Fields):
+        """Refresh Arguments"""
+
+    @classmethod
+    def mutate(cls, *arg, **kwargs):
+        return cls.refresh(*arg, **kwargs)
 
 
 class Register(MutationMixin, DynamicArgsMixin, RegisterMixin, graphene.Mutation):
@@ -103,18 +172,11 @@ class PasswordReset(
 
 
 class ObtainJSONWebToken(
-    MutationMixin, ObtainJSONWebTokenMixin, graphql_jwt.JSONWebTokenMutation
+    MutationMixin, ObtainJSONWebTokenMixin, JSONWebTokenMutation
 ):
     __doc__ = ObtainJSONWebTokenMixin.__doc__
     user = graphene.Field(UserNode)
     unarchiving = graphene.Boolean(default_value=False)
-
-    @classmethod
-    def Field(cls, *args, **kwargs):
-        cls._meta.arguments.update({"password": graphene.String(required=True)})
-        for field in app_settings.LOGIN_ALLOWED_FIELDS:
-            cls._meta.arguments.update({field: graphene.String()})
-        return super(graphql_jwt.JSONWebTokenMutation, cls).Field(*args, **kwargs)
 
 
 class ArchiveAccount(
@@ -150,7 +212,7 @@ class VerifyToken(MutationMixin, VerifyOrRefreshOrRevokeTokenMixin, graphql_jwt.
 
 
 class RefreshToken(
-    MutationMixin, VerifyOrRefreshOrRevokeTokenMixin, graphql_jwt.Refresh
+    MutationMixin, VerifyOrRefreshOrRevokeTokenMixin, CustomRefresh
 ):
     __doc__ = VerifyOrRefreshOrRevokeTokenMixin.__doc__
 
